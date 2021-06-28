@@ -18,16 +18,16 @@ class cnn(tf.keras.Model):
     super(cnn, self).__init__()
     
     self.reshape = Reshape((2,-1))
-    self.embedding = Embedding( input_dim = n_words, output_dim = 10)
+    self.embedding = Embedding( input_dim = n_words+1, output_dim = 10, mask_zero=True)
     
     self.conv1 = Conv1D(filters=10,kernel_size=(3),input_shape= (None,10))
-    self.concatenate = Concatenate(axis=1)
-    self.fc = Dense(2,activation='relu')
+    self.concatenate = Concatenate(axis=2)
+    #self.out = Dense(1,activation='relu')
+    self.fc = Dense(2,activation='softmax')
     self.dropout = Dropout(0.2)
 
   def call(self, inputs, training=False):
     
-    #inputs = tf.squeeze(inputs,[0])
 
     p1 = self.embedding(inputs[:,0])
     p2 = self.embedding(inputs[:,1])
@@ -38,28 +38,31 @@ class cnn(tf.keras.Model):
     p2 = self.conv1(p2)
     
     
+    p1 = tf.math.reduce_sum(
+    p1, axis = 1, keepdims=True, name=None
+    )
+    
+    p2 = tf.math.reduce_sum(
+    p2, axis = 1, keepdims=True, name=None
+    )
+    
 
     
-    p1=top_k(tf.transpose(p1,perm=[0,2,1]),50)[0] 
-    p2=top_k(tf.transpose(p2,perm=[0,2,1]),50)[0]
-
-    print(p1)
-    print(p2)
+    #p1 = self.out(p1)
+    #p2 = self.out(p2)
     
-    
-    p1=tf.transpose(p1,perm=[0,2,1])
-    p2=tf.transpose(p2,perm=[0,2,1]) # 50 x dim
-
     
     #if training:
     #  x = self.dropout(x, training=training)
     
     x = self.concatenate([p1,p2]) # 100 x dim
-    
-    print(x)
-    
-    return self.fc(x)
 
+    
+    interaction = self.fc(x)
+    interaction = tf.reshape(interaction,[-1,2])
+    
+    
+    return interaction
 
 
 #model = cnn()

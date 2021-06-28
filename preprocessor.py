@@ -26,7 +26,8 @@ import matplotlib.pyplot as plt
 class ppi_preprocessor:
     
     def __init__(self):
-        self.word_dict = defaultdict(lambda: len(self.word_dict))
+        self.word_dict = defaultdict(lambda: len(self.word_dict)+1) 
+        # starts from 1, leave 0 for padding
     
     def split_sequence(self, sequence, ngram): 
         ## turning sequence into words
@@ -66,6 +67,7 @@ class ppi_preprocessor:
         ppi_lines=ppi_file.readlines()
         
         dataset=[]
+        max_len=0
         for i in ppi_lines:
             ppi=i.strip().split()
             p1=dic[ppi[0]]
@@ -73,7 +75,11 @@ class ppi_preprocessor:
    
             w1 = self.split_sequence(p1, ngram)
             w2 = self.split_sequence(p2, ngram)
-        
+            
+            l=max(len(w1),len(w2))
+            if (max_len < l):
+                max_len=l
+            
             #interaction=[int(ppi[2])]
             interaction = int(ppi[2])
             
@@ -82,7 +88,7 @@ class ppi_preprocessor:
 
         #dataset = rm_long(dataset,6000)
         np.random.shuffle(dataset)        
-        
+        dataset.append(max_len)
         np.save(dump_path+name,np.array(dataset))
         self.dump_dictionary(self.word_dict, dump_path + name +'_dic.pickle')
         return 

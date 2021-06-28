@@ -29,7 +29,8 @@ class data_loader:
         
         
         dataset = np.load(path+data,allow_pickle=True)
-        
+        max_len=int(dataset[-1])
+        dataset=dataset[:-1]
 
         train, test = self.split_dataset(dataset, 0.8)
         
@@ -39,36 +40,41 @@ class data_loader:
         y_test=[]
         
         for sample in train:
-            
-            if sample[0].shape==sample[1].shape:
-                sample[0]=np.hstack([sample[0],0])
-            p1=sample[0].astype(object)
-            p2=sample[1].astype(object)
-            pp=np.array((p1,p2)).astype(object)
+
+            p1 = np.zeros(max_len)
+            p1[0:sample[0].shape[0]]+=sample[0]
+            p2 = np.zeros(max_len)
+            p2[0:sample[1].shape[0]]+=sample[1]
+            pp=np.array((p1,p2))
             x_train.append(pp)
-            y_train.append(np.array(sample[2][0]).astype(object))
+            
+            y = np.zeros((2,))
+            y[np.array(sample[2])]=1
+            y_train.append(y)
             
             #if (augmentation ==True):
             #    x_train.append((sample[1].astype('float'),sample[0].astype('float')))
             #    y_train.append(float(sample[2][0]))
                 
         for sample in test:
-            if sample[0].shape==sample[1].shape:
-                sample[0]=np.hstack([sample[0],0])
-            p1=sample[0].astype(object)
-            p2=sample[1].astype(object)
-            pp=np.array((p1,p2)).astype(object)
+
+            p1 = np.zeros(max_len)
+            p1[0:sample[0].shape[0]]+=sample[0]
+            p2 = np.zeros(max_len)
+            p2[0:sample[1].shape[0]]+=sample[1]
+            pp=np.array((p1,p2))
+            
             x_test.append(pp)
-            y_test.append(np.array(sample[2][0]).astype(object))
+            
+            y = np.zeros((2,))
+            y[np.array(sample[2])]=1
+            y_test.append(y)
         
         
         
         word_dict = self.load_pickle(path+dic)
-        print(x_train[-1].dtype)
-        for i in range(len(train)):
-            if x_train[i].dtype!='O':
-                print(x_train[i].dtype)
-        print(type(x_train))
+
+        
         x_train = np.array(x_train)
         y_train = np.array(y_train)
         x_test = np.array(x_test)
