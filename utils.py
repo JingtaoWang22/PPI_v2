@@ -50,7 +50,7 @@ class data_loader:
             
             y = np.zeros((2,))
             y[np.array(sample[2])]=1
-            y_train.append(y)
+            y_train.append(y.astype('int'))
             
             #if (augmentation ==True):
             #    x_train.append((sample[1].astype('float'),sample[0].astype('float')))
@@ -68,7 +68,7 @@ class data_loader:
             
             y = np.zeros((2,))
             y[np.array(sample[2])]=1
-            y_test.append(y)
+            y_test.append(y.astype('int'))
         
         
         

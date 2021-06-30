@@ -9,32 +9,10 @@ Created on Thu Jun 24 23:33:28 2021
 from utils import data_loader
 from models.cnn import cnn
 from tensorflow import keras
+from optimization import *
 
 import tensorflow as tf
 
-
-
-class CustomModel(keras.Model):
-    def train_step(self, data):
-        # Unpack the data. Its structure depends on your model and
-        # on what you pass to `fit()`.
-        x, y = data
-
-        with tf.GradientTape() as tape:
-            y_pred = self(x, training=True)  # Forward pass
-            # Compute the loss value
-            # (the loss function is configured in `compile()`)
-            loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses)
-
-        # Compute gradients
-        trainable_vars = self.trainable_variables
-        gradients = tape.gradient(loss, trainable_vars)
-        # Update weights
-        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-        # Update metrics (includes the metric that tracks the loss)
-        self.compiled_metrics.update_state(y, y_pred)
-        # Return a dict mapping metric names to current value
-        return {m.name: m.result() for m in self.metrics}
 
 
 
@@ -48,15 +26,28 @@ if __name__ == "__main__":
     x_train,y_train,x_test,y_test, word_dict=loader.load()
     
     
-    inputs=tf.keras.Input(shape=(2,None,))
-    cnn_model = cnn(len(word_dict) )
+    
+    # model
 
 
-    outputs = cnn_model(inputs)
-    model = CustomModel(inputs=inputs, outputs=outputs)
+
+    model = cnn(len(word_dict),dim=10 )
+
+
     
     
-    optimizer = tf.keras.optimizers.Adam()
+    
+    # optimization
+    '''
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=1e-3,
+        decay_steps=10000,
+        decay_rate=0.9)
+    
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+    '''
+    
+    optimizer,lr_schedule =  create_optimizer(init_lr=1e-3,num_warmup_steps=50*8000, num_train_steps=150*8000)
     
     model.compile(loss='categorical_crossentropy',
               optimizer=optimizer,
@@ -64,10 +55,12 @@ if __name__ == "__main__":
     
 
     
-    epochs=100
-    #for e in range(epochs):
-    model.fit(x_train, y_train, epochs=10, batch_size=4, validation_data=(x_test,y_test))
+    
+    model.fit(x_train,y_train,validation_data=(x_test,y_test),batch_size=1,epochs=150)
+    
+    #tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="./logs", write_images=True)
+    #model.fit(x_train, y_train, epochs=100, batch_size=1, validation_data=(x_test,y_test), callbacks=[tensorboard_callback])
 
-    loss_and_metrics = model.evaluate(x_test, y_test, batch_size=6)
+    #loss_and_metrics = model.evaluate(x_test, y_test, batch_size=6)
     
 
