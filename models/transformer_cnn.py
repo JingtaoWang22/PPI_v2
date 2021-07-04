@@ -12,35 +12,57 @@ from tensorflow.keras.layers import Dense, Conv1D, Embedding, Conv2D, Dropout, C
 from tensorflow.keras.layers import MultiHeadAttention
 from tensorflow.math import top_k
 import keras.backend as K
-
+from tensorflow import keras
+from tensorflow.keras import layers
 
 # default hyperparameters
 DIM = 10
 DP = 0.2
 
 
-class cnn(tf.keras.Model):
+class TransformerBlock(layers.Layer):
+    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
+        super(TransformerBlock, self).__init__()
+        self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
+        self.ffn = keras.Sequential(
+            [layers.Dense(ff_dim, activation="relu"), layers.Dense(embed_dim),]
+        )
+        self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
+        self.dropout1 = layers.Dropout(rate)
+        self.dropout2 = layers.Dropout(rate)
+
+    def call(self, inputs, training):
+        attn_output = self.att(inputs, inputs)
+        attn_output = self.dropout1(attn_output, training=training)
+        out1 = self.layernorm1(inputs + attn_output)
+        ffn_output = self.ffn(out1)
+        ffn_output = self.dropout2(ffn_output, training=training)
+        return self.layernorm2(out1 + ffn_output)
+
+
+class transformer_cnn(tf.keras.Model):
     def __init__(self, n_words, dim=DIM, dropout_rate=DP):
-        super(cnn, self).__init__()
+        super(transformer_cnn, self).__init__()
 
         self.dim = dim
         self.reshape = Reshape((2, -1))
         self.embedding = Embedding(
             input_dim=n_words+1, output_dim=self.dim, mask_zero=True)
 
+
+        self.encoder1 = TransformerBlock(self.dim, 2, 10)
+        self.encoder2 = TransformerBlock(self.dim, 2, 10)
+        self.encoder3 = TransformerBlock(self.dim, 2, 10)
+        
         self.conv1 = Conv2D(filters=1, kernel_size=(22), input_shape=(
             None, self.dim), activation='relu', padding='same')
         self.conv2 = Conv2D(filters=1, kernel_size=(22), input_shape=(
             None, self.dim), activation='relu', padding='same')
         self.conv3 = Conv2D(filters=1, kernel_size=(22), input_shape=(
             None, self.dim), activation='relu', padding='same')
-
-        '''
-        self.conv1 = Conv1D(filters=self.dim, kernel_size=(22),input_shape= (None,self.dim),activation='relu')
-        self.conv2 = Conv1D(filters=self.dim, kernel_size=(22),input_shape= (None,self.dim),activation='relu')
-        self.conv3 = Conv1D(filters=self.dim, kernel_size=(22),input_shape= (None,self.dim),activation='relu')
-        '''
-
+        
+        
         self.concatenate = Concatenate(axis=2)
         self.out_attn = MultiHeadAttention(num_heads=2, key_dim=self.dim)
         #self.out = Dense(1,activation='relu')
@@ -49,40 +71,27 @@ class cnn(tf.keras.Model):
 
     def call(self, inputs, training=False):
 
-        p1 = inputs[:, 0]
+        p1 = inputs[:, 0] # (batch,length)
         p2 = inputs[:, 1]
         batch = len(p1)
-
-        # for removing padding (CANNOT USE WHEN USING LARGE BATCH SIZE)
-        '''
-        p1_mask = (p1 != 0)
-        p2_mask = (p2 != 0)
-        #tf.print(p1_mask)
-        p1 = tf.boolean_mask(
-            p1, p1_mask, axis=0, name='boolean_mask'
-        )
-        p2 = tf.boolean_mask(
-            p2, p2_mask, axis=0, name='boolean_mask'
-        )
-        '''
-        # end of removing padding   FAILED
-        
-        p1 = tf.reshape(p1, [batch, -1])
-        p2 = tf.reshape(p2, [batch, -1])
-
-
-
-        
-        
-        
         
 
-        p1 = self.embedding(p1)
+        p1 = self.embedding(p1)  #(batch,length,self.dim)
         p2 = self.embedding(p2)
         
-
         
-        # cnn
+        
+        # self-attn encoder
+        p1 = self.encoder1(p1)
+        p1 = self.encoder2(p1)
+        p1 = self.encoder3(p1)
+        
+        p2 = self.encoder1(p2)
+        p2 = self.encoder2(p2)
+        p2 = self.encoder3(p2)
+        
+        
+        # CNNs
         p1 = tf.expand_dims(p1, axis=-1)
         p2 = tf.expand_dims(p2, axis=-1)
 
@@ -98,19 +107,18 @@ class cnn(tf.keras.Model):
         p1 = tf.squeeze(p1, axis=-1)
         p2 = tf.squeeze(p2, axis=-1)
 
-        tf.summary.image("post_conv", p1)
 
+
+
+        '''concatenation'''
         p1 = tf.transpose(p1, [0, 2, 1])
         p2 = tf.transpose(p2, [0, 2, 1])
-
         p1 = tf.math.top_k(
             p1, k=50, sorted=False, name=None
         )[0]
         p2 = tf.math.top_k(
             p2, k=50, sorted=False, name=None
         )[0]
-
-        p1s = tf.summary.image('./logs', [p1])
 
         p1 = tf.transpose(p1, [0, 2, 1])
         p2 = tf.transpose(p2, [0, 2, 1])
