@@ -11,6 +11,7 @@ from models.cnn import cnn
 from models.cnn_no_pad import cnn_no_pad
 from models.transformer import transformer
 from models.transformer_cnn import transformer_cnn
+from models.transformer_no_pad import transformer_no_pad
 from tensorflow import keras
 from optimization import *
 import numpy as np
@@ -19,7 +20,7 @@ import tensorflow as tf
 
 
 ''' training hyperparameters'''
-batch_size = 4
+batch_size = 1
 warmup_epochs = 100
 train_epochs = 100
 learning_rate = 1e-3
@@ -46,7 +47,8 @@ if __name__ == "__main__":
     # pad:
     #model = cnn(len(word_dict),dim=10 )
     #model = transformer(len(word_dict),dim=10)
-    model = transformer_cnn(len(word_dict),dim=10)
+    #model = transformer_cnn(len(word_dict),dim=10)
+    model = transformer_no_pad(len(word_dict),dim=10)
     
     #no pad:
     #model = cnn_no_pad(len(word_dict),dim=10 )
