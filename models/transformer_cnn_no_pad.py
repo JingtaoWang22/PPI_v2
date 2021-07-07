@@ -21,7 +21,7 @@ DP = 0.2
 
 
 class TransformerBlock(layers.Layer):
-    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.2):
+    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
         super(TransformerBlock, self).__init__()
         self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
         self.ffn = keras.Sequential(
@@ -41,19 +41,28 @@ class TransformerBlock(layers.Layer):
         return self.layernorm2(out1 + ffn_output)
 
 
-class transformer_no_pad(tf.keras.Model):
+class transformer_cnn_no_pad(tf.keras.Model):
     def __init__(self, n_words, dim=DIM, dropout_rate=DP):
-        super(transformer_no_pad, self).__init__()
+        super(transformer_cnn_no_pad, self).__init__()
 
         self.dim = dim
         self.reshape = Reshape((2, -1))
         self.embedding = Embedding(
             input_dim=n_words+1, output_dim=self.dim, mask_zero=True)
 
+
         self.encoder1 = TransformerBlock(self.dim, 2, 10)
         self.encoder2 = TransformerBlock(self.dim, 2, 10)
         self.encoder3 = TransformerBlock(self.dim, 2, 10)
-
+        
+        self.conv1 = Conv2D(filters=1, kernel_size=(22), input_shape=(
+            None, self.dim), activation='relu', padding='same')
+        self.conv2 = Conv2D(filters=1, kernel_size=(22), input_shape=(
+            None, self.dim), activation='relu', padding='same')
+        self.conv3 = Conv2D(filters=1, kernel_size=(22), input_shape=(
+            None, self.dim), activation='relu', padding='same')
+        
+        
         self.concatenate = Concatenate(axis=2)
         self.out_attn = MultiHeadAttention(num_heads=2, key_dim=self.dim)
         #self.out = Dense(1,activation='relu')
@@ -65,8 +74,7 @@ class transformer_no_pad(tf.keras.Model):
         p1 = inputs[:, 0] # (batch,length)
         p2 = inputs[:, 1]
         batch = len(p1)
-        
-        
+                
         
         p1_mask = (p1 != 0)
         p2_mask = (p2 != 0)
@@ -85,12 +93,14 @@ class transformer_no_pad(tf.keras.Model):
         p1 = tf.reshape(p1, [batch, -1])
         p2 = tf.reshape(p2, [batch, -1])
         
-        
-        # transformer
+
         p1 = self.embedding(p1)  #(batch,length,self.dim)
         p2 = self.embedding(p2)
         
-        p1 = self.encoder1(p1) 
+        
+        
+        # self-attn encoder
+        p1 = self.encoder1(p1)
         p1 = self.encoder2(p1)
         p1 = self.encoder3(p1)
         
@@ -98,6 +108,24 @@ class transformer_no_pad(tf.keras.Model):
         p2 = self.encoder2(p2)
         p2 = self.encoder3(p2)
         
+        
+        # CNNs
+        p1 = tf.expand_dims(p1, axis=-1)
+        p2 = tf.expand_dims(p2, axis=-1)
+
+        p1 = self.conv1(p1)
+        p2 = self.conv1(p2)
+
+        p1 = self.conv2(p1)
+        p2 = self.conv2(p2)
+
+        p1 = self.conv3(p1)
+        p2 = self.conv3(p2)
+
+        p1 = tf.squeeze(p1, axis=-1)
+        p2 = tf.squeeze(p2, axis=-1)
+
+
 
 
         '''concatenation'''
